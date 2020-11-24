@@ -1,12 +1,12 @@
 # Secondary Report
 
-# Question
+## Question
 
-## Refined question 
+### Refined question 
 
 The broad question of this project is how does the COVID-19 pandemic impact people’s emotion. There are two key terms in our broad question. The first one is the COVID-19 pandemic. Among various aspects of the pandemic, we primarily focus on the total number of confirmed cases and deaths.  The second key term is emotion. Since it’s difficult to define emotion scientifically, we are currently looking at people’s emotion through their tweets in Twitter. Unfortunately, the dataset we found only have tweets with `#covid19` hashtag. Therefore, we only look at the tweets with `#covid19` hashtag. To sum up, our refined statistical question is how does the total number of infections and deaths affect the sentiment of tweets with `#covid19` hashtag in the US. Here we only focus on the US in order to narrow down our research topic.
 
-## Applicability
+### Applicability
 
 The major limitation of our refined question is the lack of accuracy in measuring emotion. Although Twitter is one of the most popular social media platforms in the US, the tweets may not be able to reflect people’s emotion comprehensively. For example, people who have extreme negative attitudes might not want to post their real thoughts on Twitter. Also, there are lots of homeless people, elderly people and patients who do not use Twitter at all. Therefore, our tweets-based emotion analysis might be biased. However, we still believe that our method would produce compelling results because there is no perfect way to synthesize human emotion.  
 
@@ -14,9 +14,9 @@ Considering only the tweets with `#covid19` hashtag adds limitation to our resea
 
 Another major limitation of our refined question is the way we quantify the severity of COVID. The number of total infections and deaths is not the only thing that concerns people. Some people might have negative attitudes because they have to stay at home. Others might be angry about losing their jobs. Therefore, in the future, we can look for variables that explain other aspects of the pandemic.
 
-# Data Set
+## Data Set
 
-## Description and Criticism
+### Description and Criticism
 
 Our dataset includes tweets, sentiment and regional cases.
 
@@ -32,7 +32,7 @@ The limitations are shown as below.
 
 **Regional cases**: It collects information from 50 US states, the District of Columbia, and 5 other US territories and provides the testing data of positive and negative results, pending tests, as well as total hospitalizations, deaths and recovered. We combine this dataset with the “Tweets” to analyze whether the death rate, number of the confirmed cases, rate of the deaths and recovered, etc. are associated with the users’ moods.
 
-## Pre-Process: 
+### Pre-Process: 
 
 **Location Cleaning**: Since the messy location information in the data set holds no fixed format, and there are even some typo in the location information, then it is necessary to do the text cleaning. The main idea of location cleaning is to transform to lower cases, search for the location string containing the some special substring, like "usa", the state name or city name, and then extract or convert to the corresponding state name.
 
@@ -51,19 +51,19 @@ outcome     0     1
 
 **Combination**: Eventually, combine the processed data sets including evaluated sentiment with the **Regional Cases** data set, to obtain, for each tweet, the corresponding American state-level local COVID data, in the same state and on the same day.
 
-# Model
+## Model
 
 **Expectation**: When the COVID condition are more severe, to be more specific, higher amount or increment of death o infection, or higher rate of death, the attitude of local people tend to be more negative.
 
 
 
-## Model 1: Logistic Regression
+### Model 1: Logistic Regression
 
 Since the calculated sentiment outcome is 0-1 variable, then we consider the simple logistic regressions with the sentiment as response and with cumulative number of infection, increment of infection, cumulative number of death, increment of death, rate of death respectively as the predictor. Since the five predictors tends to be highly relative, in case of multi-collinearity, we decide not to add all these predictors into one model.
 
 ![image-20201119213907993](C:\Users\DELL\AppData\Roaming\Typora\typora-user-images\image-20201119213907993.png)
 
-### Model Assumption:
+#### Model Assumption:
 
 1. **Independent**: all the calculated tweet sentiment are independent, or no interaction between tweets or publishers.
 2. **Linearity**: the predictor and intercept linearly impact the response. 
@@ -104,13 +104,13 @@ In the fitted logistic regression model, although, the sign of the coefficient o
 
 And in other simple logistic regression models with other predictors, none is statistically significant and with expected deviance decrease. 
 
-## Model 2: Linear Regression Model with Transformed Data
+### Model 2: Linear Regression Model with Transformed Data
 
 Group the data set by the states, and the calculate the mean of the evaluated sentiment outcome of each state and the mean of the death rate of each state. Apply the `logit` function to both the mean of sentiment, ranged from 0 to 1, and the mean of death rate, draw the scatter plot to inspect the trend.
 
 <img src="C:\Users\DELL\AppData\Roaming\Typora\typora-user-images\image-20201119220235644.png" alt="image-20201119220235644" style="zoom: 67%;" />
 
-### Model Assumption:
+#### Model Assumption:
 
 1. **Independent**: all the calculated tweet sentiment are independent, or no interaction between tweets or publishers.
 2. **Linearity**: the predictor and intercept linearly impact the response. 

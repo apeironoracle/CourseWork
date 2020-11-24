@@ -7,6 +7,7 @@ library(tidyverse)
 library(tidytext)
 
 # read data finishing location cleaning -----------------------------------
+rm(list = ls())
 
 raw.data <- 
   read.csv("./Process/data_usa_states.csv", row.names = NULL) %>% tibble()
@@ -130,6 +131,12 @@ data.senti_covid %>%
   ggplot() +
   aes(fill = sentiment) +
   geom_boxplot(mapping = aes(x = sentiment,
+                             y = log(positive)),
+               data = ~ .x %>% mutate(tag = "Infect_log")) +
+  geom_boxplot(mapping = aes(x = sentiment,
+                             y = log(death)),
+               data = ~ .x %>% mutate(tag = "Death_log")) +
+  geom_boxplot(mapping = aes(x = sentiment,
                              y = log(deathIncrease)),
                data = ~ .x %>% mutate(tag = "Death_Incre_log")) +
   geom_boxplot(mapping = aes(x = sentiment,
@@ -141,7 +148,10 @@ data.senti_covid %>%
                  filter(!is.na(recovered)) %>% 
                  mutate(tag = "Death_Rate_log")) +
   coord_flip() +
-  facet_wrap(~tag, scales = "free_x")
+  facet_wrap(~tag, scales = "free_x", ncol = 2) +
+  labs(y = "value", title = "Box Plot") +
+  guides(fill = FALSE) +
+  theme(plot.title = element_text(hjust = .5))
 
 glm(data = data.senti_covid %>% 
       filter(deathIncrease > 0) %>% 
@@ -166,6 +176,9 @@ model.glm.death_rate <- glm(data = data.senti_covid %>%
                               mutate(death_ratio_log = log(death/recovered)),
                             formula = sentiment ~ death_ratio_log,
                             family = binomial())
+summary(model.glm.death_rate)
+
+pscl::pR2(model.glm.death_rate)
 
 data.senti_covid %>% 
   filter(!is.na(recovered)) %>% 
@@ -175,7 +188,12 @@ data.senti_covid %>%
   ggplot(aes(x = death_rate_mean_log,
              y = sentiment_mean_logit)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
+  geom_smooth(method = "lm", se = FALSE,
+              lty = "dashed") +
+  labs(x = "logit mean of death rate",
+       y = "logit mean of sentiment", 
+       title = "Scatter Plot with OLS") +
+  theme(plot.title = element_text(hjust = .5))
 
 model.lm.death_rate.states <- data.senti_covid %>% 
   filter(!is.na(recovered)) %>% 
