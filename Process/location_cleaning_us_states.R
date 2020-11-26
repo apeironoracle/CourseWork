@@ -15,30 +15,49 @@ worldcities <- read_csv("input/world-cities.csv",
 us_cities <- worldcities %>%
   filter(country == "United States") %>%
   mutate(name = tolower(name), subcountry = tolower(subcountry)) %>%
-  select(-country, -geonameid)
+  select(-country, -geonameid) %>% 
+  rename(state = subcountry,
+         city = name)
 
-# tweets_location <- raw.data %>%
-#   mutate(user_location = tolower(user_location)) %>% #convert to lower case
-#   group_by(user_location) %>%
-#   summarise(n = n(), .groups = "drop_last") %>%
-#   arrange(desc(n))
-#
-# tweets_location %>%
-#   filter(user_location %in% us_cities$subcountry |
-#            user_location %in% us_cities$name)
-#
+us_states <- worldcities %>%
+  filter(country == "United States") %>%
+  mutate(state = tolower(subcountry)) %>%
+  select(state) %>% 
+  unique()
 
-city2state <- function(x){
-  ifelse(x %in% us_cities$subcountry,
-         state <- x,
-         state <- us_cities %>%
-           filter(name == x) %>%
-           select(subcountry) %>%
-           simplify2array() %>%
-           as.vector())
-  state <- ifelse(length(state)==1, state, NA)
-  return(state)
-}
+us_states <- us_states %>% 
+  mutate(state.clean = state %>% 
+           simplify2array() %>% 
+           as.vector %>% 
+           str_remove_all("[:punct:]"))
+  
+# us_states
+
+tweets_location <- raw.data %>%
+  filter(user_location != "") %>% 
+  mutate(user_location = user_location %>% 
+           tolower() %>% 
+           str_remove_all("\\.") %>% 
+           trimws()) %>% #convert to lower case
+  group_by(user_location) %>%
+  summarise(n = n(), .groups = "drop_last") %>%
+  arrange(desc(n)); tweets_location
+
+tweets_location %>% 
+  data.frame() %>% 
+  head(50)
+
+tweets_location %>%
+  filter(str_detect(user_location, "washington"))
+
+tweets_location %>%
+  filter(str_detect(user_location, "new york"))
+
+tweets_location %>%
+  filter(user_location %in% us_cities$subcountry |
+           user_location %in% us_cities$name) %>% 
+  str_remove_all()
+
 
 trans2usstate <- function(x){
   trans <- x

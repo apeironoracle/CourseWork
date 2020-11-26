@@ -19,6 +19,11 @@ data.covid <-
   read_csv("./input/StatesHistorical.csv", 
            col_types = cols(date = col_character()))
 
+data.covid.us <- 
+  read_csv("./input/US_historical.csv",
+           col_types = cols(date = col_character(),
+                            dateChecked = col_character())); data.covid.us
+
 # text cleaning -----------------------------------------------------------
 
 text_clean <- function(unclean_tweets){
@@ -171,6 +176,8 @@ glm(data = data.senti_covid %>%
     formula = sentiment ~ infect_log,
     family = binomial()) %>% summary
 
+# Model 1
+
 model.glm.death_rate <- glm(data = data.senti_covid %>% 
                               filter(!is.na(recovered)) %>% 
                               mutate(death_ratio_log = log(death/recovered)),
@@ -195,6 +202,8 @@ data.senti_covid %>%
        title = "Scatter Plot with OLS") +
   theme(plot.title = element_text(hjust = .5))
 
+# Model 2, group by state
+
 model.lm.death_rate.states <- data.senti_covid %>% 
   filter(!is.na(recovered)) %>% 
   group_by(state) %>% 
@@ -208,5 +217,7 @@ summary(model.lm.death_rate.states)
 
 par(mfrow = c(2,2))
 plot(model.lm.death_rate.states)
+
+# Model 3, group by date
 
 
