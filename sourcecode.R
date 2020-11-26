@@ -10,19 +10,7 @@ library(tidytext)
 rm(list = ls())
 
 raw.data <- 
-  read.csv("./Process/data_usa_states.csv", row.names = NULL) %>% tibble()
-
-data.statesinfo <- 
-  read.csv("./input/StatesInformation.csv", row.names = NULL) %>% tibble()
-
-data.covid <- 
-  read_csv("./input/StatesHistorical.csv", 
-           col_types = cols(date = col_character()))
-
-data.covid.us <- 
-  read_csv("./input/US_historical.csv",
-           col_types = cols(date = col_character(),
-                            dateChecked = col_character())); data.covid.us
+  read.csv("./Process/data_usa_states_v2.csv", row.names = NULL) %>% tibble()
 
 # text cleaning -----------------------------------------------------------
 
@@ -68,7 +56,7 @@ senti_analysis <- function(tweets){
 # input:    text vector
 # output:   tibble with line index and SA score
 # purpose:  calculate sentiment analysis score with bing lexicon
-  tweets_df <- tibble(line = 1:length(tweets), tweets = tweets)
+  tweets_df <- tibble(line = raw.data$X, tweets = tweets)
   
   # one token per row
   tweets_tidy <- tweets_df %>% 
@@ -102,25 +90,155 @@ tweets_senti %>% select(sentiment) %>% table()
 # combine data sets -------------------------------------------------------
 
 data.senti <- raw.data %>% 
-  inner_join(tweets_senti, by = c("X"="index"))
+  inner_join(tweets_senti, by = c("X" = "index"))
 
-data.senti_covid <- data.senti %>% 
+# add other predictors ----------------------------------------------------
+
+# state information
+data.statesinfo <- 
+  read.csv("./input/StatesInformation.csv", row.names = NULL) %>% tibble()
+
+# covid history state-level
+data.covid <- 
+  read_csv("./input/StatesHistorical.csv", 
+           col_types = cols(date = col_character()))
+
+# covid history us-level
+data.covid.us <- 
+  read_csv("./input/US_historical.csv",
+           col_types = cols(date = col_character(),
+                            dateChecked = col_character())); data.covid.us
+
+# mask information
+data.mask <- read_csv("./input/mask.csv")
+
+data.mask %>% 
+  select(-"Type of Requirement") %>% 
+  rename(state = "State.", 
+         mask = "Masks Required?", 
+         date = "Requirement Date") %>% 
+  mutate(state = state %>% 
+           str_extract(pattern = "(?<=\\[).*(?=\\])")) %>% 
+  mutate(mask = mask %>% 
+           str_extract("\\w*") %>% 
+           str_to_lower() %>% 
+           str_replace_all("masks", "entire") %>% 
+           factor(levels = c("no", "parts", "entire"),
+                  labels = c("n", "p", "f"))) %>% 
+  mutate(date = date %>% as.Date("%m/%d/%Y"))
+
+# unemployed rate
+data.unemploy <- read_csv("./input/unemployed.csv") %>% select(-1)
+
+library(zoo)
+lct <- Sys.getlocale("LC_TIME"); Sys.setlocale("LC_TIME", "C");rm(lct)
+
+data.unemploy %>% 
+  rename(state = State) %>% 
+  gather(-state, key = "date", value = "rate") %>% 
+  mutate(date = date %>% 
+           str_remove_all(" ") %>% 
+           as.yearmon("%b%Y") %>% 
+           format("%Y-%m")) %>% 
+  mutate(rate = rate %>% str_remove_all("\\%")) %>% 
+  mutate(rate = as.numeric(rate))
+
+# lock down
+data.lockdown <- read_csv("./input/countryLockdowndates.csv")
+
+data.lockdown %>% 
+  select(-Reference) %>% 
+  rename(type = Type,
+         state = Province,
+         date = Date,
+         country = `Country/Region`) %>% 
+  filter(country == "US") %>% 
+  select(-country) %>% 
+  mutate(date = date %>% as.Date("%d/%m/%Y"),
+         type = factor(type, 
+                       levels = c("None", "Full"), 
+                       labels = c("n", "f"))) 
+
+
+# aggregate
+
+data_whole <- data.senti %>% #select(user_location, date) %>% 
+  mutate(date = date %>% 
+           str_sub(start = 1L, end = 10L)) %>% 
+  inner_join(y = data.mask %>% 
+               select(-"Type of Requirement") %>% 
+               rename(state = "State.", 
+                      mask = "Masks Required?", 
+                      date = "Requirement Date") %>% 
+               mutate(state = state %>% 
+                        str_extract(pattern = "(?<=\\[).*(?=\\])")) %>% 
+               mutate(mask = mask %>% 
+                        str_extract("\\w*") %>% 
+                        str_to_lower() %>% 
+                        str_replace_all("masks", "entire") %>% 
+                        factor(levels = c("no", "parts", "entire"),
+                               labels = c("n", "p", "f"))) %>% 
+               mutate(date = date %>% as.Date("%m/%d/%Y")) %>% 
+               rename(date.m = date),
+             by = c("user_location"="state")) %>% #select(mask) %>% table
+  mutate(mask = ifelse( na.fill(date > date.m, TRUE) , mask, 1)) %>% 
+  mutate(mask = factor(mask, levels = c("1", "2", "3"),
+                       labels = c("n", "p", "f"))) %>% #select(mask) %>% table
+  select(-date.m) %>% 
+  inner_join(y = data.lockdown %>% 
+               select(-Reference) %>% 
+               rename(type = Type,
+                      state = Province,
+                      date = Date,
+                      country = `Country/Region`) %>% 
+               filter(country == "US") %>% 
+               select(-country) %>% 
+               mutate(date = date %>% as.Date("%d/%m/%Y"),
+                      type = factor(type, 
+                                    levels = c("None", "Full"), 
+                                    labels = c("n", "f"))) %>% 
+               rename(date.l = date,
+                      lock = type),
+             by = c("user_location"="state")) %>% #transmute(date>date.l) %>% table
+  select(-date.l) %>% 
+  mutate(date.ym = date %>% 
+           as.Date("%Y-%m-%d") %>% 
+           format("%Y-%m")) %>% 
+  inner_join(y = data.unemploy %>% 
+               rename(state = State) %>% 
+               gather(-state, key = "date", value = "rate") %>% 
+               mutate(date = date %>% 
+                        str_remove_all(" ") %>% 
+                        as.yearmon("%b%Y") %>% 
+                        format("%Y-%m")) %>% 
+               mutate(rate = rate %>% str_remove_all("\\%")) %>% 
+               mutate(rate = as.numeric(rate)) %>% 
+               rename(unemploy_rate = rate), 
+             by = c("user_location"="state",
+                    "date.ym"="date")) %>% 
+  select(-date.ym) %>% 
   inner_join(y = data.statesinfo %>% 
                select(state, name) %>% 
-               mutate(name = tolower(name)),
+               rename(state.abbr = state),
              by = c("user_location"="name")) %>% 
-  mutate(date = date %>% 
-           (function(x) str_sub(x, start = 1L, end = 10L))) %>% 
-  inner_join(data.covid %>% 
-               mutate(date = date %>% 
-                        (function(x) str_c(str_sub(x, start = 1L, end = 4L),
-                                           str_sub(x, start = 5L, end = 6L),
-                                           str_sub(x, start = -2L, end = -1L),
-                                           sep = "-", collapse = NULL))),
-             by = c("date"="date", "state"="state"))
+  inner_join(y = data.covid %>% 
+               mutate(date = as.Date(date, "%Y%m%d") %>% as.character),
+             by = c("date"="date",
+                    "state.abbr"="state")) %>% #select(user_name) %>% unique()
+  distinct(user_name, .keep_all = TRUE) #%>% select(user_name) %>% unique()
 
-# # export the data
-# write.csv(data.senti_covid, file = "./Process/data_senti_covid.csv")
+#write.csv(data_whole %>% rename(index = X), "./Process/data_whole.csv")
+#read_csv("./Process/data_whole.csv")
+
+data_whole %>% 
+  select(sentiment, user_location, positive, positiveIncrease,
+         death, deathIncrease, recovered,mask, lock, unemploy_rate)
+
+
+
+
+
+
 
 
 data.senti_covid %>% 
